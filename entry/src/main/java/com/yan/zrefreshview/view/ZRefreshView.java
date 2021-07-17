@@ -31,9 +31,6 @@ public class ZRefreshView extends DirectionalLayout implements Component.LayoutR
     private RefreshHeader header;
 
 
-
-
-
     /**
      * 下拉控件高度
      */
@@ -64,7 +61,7 @@ public class ZRefreshView extends DirectionalLayout implements Component.LayoutR
         super(context, attrSet, styleName);
         setOrientation(VERTICAL);
         if (getChildCount() > 1) {
-            throw new RuntimeException("FunGameRefreshView can only contain one View getChildCount="+getChildCount());
+            throw new RuntimeException("FunGameRefreshView can only contain one View getChildCount=" + getChildCount());
         }
         initView(context, attrSet);
     }
@@ -73,7 +70,13 @@ public class ZRefreshView extends DirectionalLayout implements Component.LayoutR
         header = new RefreshHeader(context, attrs);
         addComponent(header, 0);
         setLayoutRefreshedListener(this);
-
+        setScrolledListener(new ScrolledListener() {
+            @Override
+            public void onContentScrolled(Component component, int i, int i1, int i2, int i3) {
+                LogUtil.info(TAG, "onContentScrolled().i=" + i + ",i1=" + i1);
+                LogUtil.info(TAG, "onContentScrolled().i2=" + i2 + ",i3=" + i3);
+            }
+        });
     }
 
 
@@ -83,7 +86,10 @@ public class ZRefreshView extends DirectionalLayout implements Component.LayoutR
         header.setMarginTop(hideHeaderHeight);
         setDraggedListener(1, draggedListener);
         setLayoutRefreshedListener(null);
+
     }
+
+    private static final String TAG = ZRefreshView.class.getSimpleName();
 
     private DraggedListener draggedListener = new DraggedListener() {
         @Override
@@ -95,20 +101,22 @@ public class ZRefreshView extends DirectionalLayout implements Component.LayoutR
             preDownY = dragInfo.startPoint.getPointYToInt();
         }
 
+
         @Override
         public void onDragUpdate(Component component, DragInfo dragInfo) {
+            //下拉
+            if (currentStatus == RefreshState.REFRESHING_STATE) {
+                return;
+            }
             float currY = dragInfo.updatePoint.getPointYToInt();
             float distance = currY - preDownY;
             if (distance > 0) {
-                //下拉
-                if (currentStatus == RefreshState.REFRESHING_STATE) {
-                    return;
-                }
-                float offsetY = distance *STICK_RATIO;
+                float offsetY = distance * STICK_RATIO;
                 if (Math.abs(offsetY) > Math.abs(hideHeaderHeight) * 2) {
                     return;
                 }
-                if (header.getMarginTop() > hideHeaderHeight*0.25) { // 头部全部被下拉出来的时候状态转换为释放刷新
+                LogUtil.info(TAG, "onDragUpdate().offsetY=" + offsetY + ",hideHeaderHeight=" + hideHeaderHeight);
+                if (offsetY > Math.abs(hideHeaderHeight)) { // 头部全部被下拉出来的时候状态转换为释放刷新
                     currentStatus = RefreshState.RELEASE_TO_REFRESH;
                 } else {
                     currentStatus = RefreshState.PULL_TO_REFRESH;
@@ -260,15 +268,15 @@ public class ZRefreshView extends DirectionalLayout implements Component.LayoutR
             public void run() {
                 rollbackHeader();
             }
-        }, 300);
+        }, 500);
     }
 
     /**
      * 当所有的刷新逻辑完成后，记录调用一下，否则将一直处于正在刷新状态。
      */
     public void finishRefreshing(String loadingStr) {
-        finishRefreshing();
         setLoadingText(loadingStr);
+        finishRefreshing();
     }
 
     /**
